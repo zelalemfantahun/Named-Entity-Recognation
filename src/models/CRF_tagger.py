@@ -1,58 +1,150 @@
-from nltk.tag import CRFTagger
+"""
+CRF_tagger.py
+
+Train, tag, and evaluate a Conditional Random Field (CRF) model
+for Named Entity Recognition (NER).
+
+Author: Zelalem Abate
+"""
+
 import ast
-ct = CRFTagger()
 import re
+from pathlib import Path
 
-test_set = open('/home/zelalem/Desktop/Named_Entity_Recognantion/CRF_data_set/sample_testing.txt','r') # reading the testing set here
-test_set = test_set.read().split('\n')
-test_set = filter(lambda x: not re.match(r'^\s*$', x), test_set)
-
-with open('/home/zelalem/Desktop/Named_Entity_Recognantion/CRF_data_set/sample_training.txt') as f: # reading the tarining set here
-    read_line = f.read().splitlines()
-    read_lines = filter(lambda x: not re.match(r'^\s*$', x), read_line)
-
-with open('/home/zelalem/Desktop/Named_Entity_Recognantion/CRF_data_set/sample_gold.txt') as f: # reading the gold standard here
-    gold_line = f.read().splitlines()
-    gold_line = filter(lambda x: not re.match(r'^\s*$', x), read_line)
-
-tagged_text = open('/home/zelalem/Desktop/Named_Entity_Recognantion/CRF_data_set/test_tagged_data.txt', 'w') # writing the tagged data
+from nltk.tag import CRFTagger
 
 
-train_data = []
-test_data = []
-gold_data = []
-number_lines = 0
+# ------------------------------------------------------
+# Project Directories
+# ------------------------------------------------------
 
-for i in read_lines:
-    i = "[" + i + "]"
-    lists_e = ast.literal_eval(i)
-    train_data.append(lists_e)
+BASE_DIR = Path(__file__).resolve().parents[2]
 
-print ('Training the CRF++ model started')
-ct.train(train_data,'model.crf.tagger') # training the crf model using the training set
-print ('Training the CRF++ model completed')
+DATA_DIR = BASE_DIR / "data"
 
-test_number_lines = 0
-print ('Reading Unseen Data')
-for lines in test_set:
-    test_number_lines = test_number_lines + 1
-    print('Processing file', test_number_lines)
-    xx = (lines.split())
-    test_data.append(xx)
+TRAIN_FILE = DATA_DIR / "sample_training.txt"
+TEST_FILE = DATA_DIR / "sample_testing.txt"
+GOLD_FILE = DATA_DIR / "sample_gold.txt"
+
+MODEL_FILE = BASE_DIR / "models" / "model.crf.tagger"
+
+OUTPUT_FILE = BASE_DIR / "results" / "test_tagged_data.txt"
 
 
-tagged_sent = ct.tag_sents(test_data) # tagging the the unseen data
+# ------------------------------------------------------
+# Utility Functions
+# ------------------------------------------------------
 
-for tag_set in tagged_sent:
-    tagged_text.write(str(tag_set))
-    tagged_text.write('\n')
+def remove_blank_lines(lines):
+    """Remove empty lines from a list."""
+    return [line for line in lines if not re.match(r"^\s*$", line)]
 
-tagged_text.close()
-print ('Tagging the Unseen data Completed')
 
-for vz in gold_line:
-    vz = "[" + vz + "]"
-    gold_list = ast.literal_eval(vz)
-    gold_data.append(gold_list)
+def load_training_data(file_path):
+    """Load CRF training data."""
 
-print ('The Total Accuracy of the System is:'+str(ct.evaluate(gold_data)))
+    with open(file_path, "r", encoding="utf-8") as file:
+        lines = remove_blank_lines(file.read().splitlines())
+
+    training_data = []
+
+    for line in lines:
+        training_data.append(ast.literal_eval(f"[{line}]"))
+
+    return training_data
+
+
+def load_test_data(file_path):
+    """Load unseen sentences."""
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        lines = remove_blank_lines(file.read().splitlines())
+
+    return [line.split() for line in lines]
+
+
+def load_gold_data(file_path):
+    """Load gold standard annotations."""
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        lines = remove_blank_lines(file.read().splitlines())
+
+    gold_data = []
+
+    for line in lines:
+        gold_data.append(ast.literal_eval(f"[{line}]"))
+
+    return gold_data
+
+
+# ------------------------------------------------------
+# Main Workflow
+# ------------------------------------------------------
+
+def train_model(training_data):
+    """Train the CRF model."""
+
+    tagger = CRFTagger()
+
+    print("=" * 60)
+    print("Training CRF model...")
+    print("=" * 60)
+
+    tagger.train(training_data, str(MODEL_FILE))
+
+    print("Training completed.\n")
+
+    return tagger
+
+
+def tag_sentences(tagger, test_data):
+    """Tag unseen sentences."""
+
+    print("=" * 60)
+    print("Tagging unseen data...")
+    print("=" * 60)
+
+    tagged_sentences = tagger.tag_sents(test_data)
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as output:
+
+        for sentence in tagged_sentences:
+            output.write(str(sentence))
+            output.write("\n")
+
+    print("Tagged data saved to:")
+    print(OUTPUT_FILE)
+
+    return tagged_sentences
+
+
+def evaluate_model(tagger, gold_data):
+    """Evaluate model performance."""
+
+    accuracy = tagger.evaluate(gold_data)
+
+    print("\n" + "=" * 60)
+    print(f"NER Accuracy: {accuracy:.4f}")
+    print("=" * 60)
+
+
+def main():
+    """Main entry point."""
+
+    print("\nLoading datasets...\n")
+
+    training_data = load_training_data(TRAIN_FILE)
+
+    test_data = load_test_data(TEST_FILE)
+
+    gold_data = load_gold_data(GOLD_FILE)
+
+    tagger = train_model(training_data)
+
+    tag_sentences(tagger, test_data)
+
+    evaluate_model(tagger, gold_data)
+
+
+if __name__ == "__main__":
+    main()
