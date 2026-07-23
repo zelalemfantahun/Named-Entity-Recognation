@@ -1,0 +1,5 @@
+numpy
+pandas
+nltk
+python-crfsuite
+scikit-learn
